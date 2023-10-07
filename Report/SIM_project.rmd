@@ -1,0 +1,21 @@
+---
+title: "SIM - Project"
+author: "Ignacio Lloret"
+date: "2023-10-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse);library(EnvStats);library(ggplot2)
+setwd("C:/MDS/SIM/Project")
+
+
+```
+
+
+
+```{r read data}
+read.csv("data/train.csv")
+
+```
+
