@@ -15,7 +15,9 @@ setwd("C:/MDS/SIM/Project")
 
 
 ```{r read data}
-read.csv("data/train.csv")
+df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+
+df %>% glimpse
 
 ```
 
