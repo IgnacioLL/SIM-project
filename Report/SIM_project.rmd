@@ -6,96 +6,244 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-library(tidyverse);library(EnvStats);library(ggplot2)
+library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(visdat)
+library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass)
+
+
 setwd("C:/MDS/SIM/Project")
+knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 
 
 ```
 
+## Data Reading
 
-
-```{r read data}
+```{r, read_data}
 df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+```
 
+## Keep columns
+
+```{r, keep_data, fig.height=10}
 ##################
-
-library(FactoMineR);library(DataExplorer);library(mice); library(lmtest)
-
 numeric_columns <- c("LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "LowQualFinSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "EnclosedPorch", "X3SsnPorch", "ScreenPorch", "PoolArea", "MiscVal", "MoSold", "YrSold", "OverallCond","OverallQual","SalePrice")
+
 cat_keep <- c("FireplaceQu","KitchenQual","BsmtFinType1","BsmtExposure","BsmtQual","Foundation","Neighborhood","LotShape","MSSubClass","Exterior1st","Exterior2nd")
-df1 <- df %>% select(all_of(numeric_columns), all_of(vars_keep))
 
-df1 %>% create_report(
-  config = configure_report(
-    add_plot_qq  = FALSE, 
-    add_plot_prcomp = FALSE,
-    add_plot_boxplot = TRUE
-    )
-  )
+df1 <- df %>% select(all_of(numeric_columns), all_of(cat_keep))
+```
 
-## Impute missing data by creatin extra modality
+# Exploratory Data Analysis
+
+## Missing data
+
+```{r, missing_data, fig.height=3}
+
+plot_missing(df1, missing_only = TRUE, group = list("Low" = 0.05, "Medium"=0.25, "High"=0.5, "Very High" =1), geom_label_args = list("size" = 2))
+
+```
+
+## Categorical values
+
+```{r, categorical_plot}
+
+df1[cat_keep] <- lapply(df1[cat_keep], as.factor) ## Create Factors
+df1[numeric_columns] <- lapply(df1[numeric_columns], as.numeric) 
+
+
+p1 <- df1 %>% 
+  select(all_of(cat_keep)) %>%
+  pivot_longer(cols=everything()) %>%
+  ggplot(data=.) +
+  geom_bar(aes(x=value), col="black", fill="white") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~name, scales="free", ncol=4)
+p1
+```
+
+## Numerical Data
+
+```{r, num_graphs, fig.height=20}
+
+p2 <- df1 %>% 
+  select(all_of(numeric_columns)) %>%
+  pivot_longer(cols=everything()) %>%
+  ggplot(data=.) +
+  geom_boxplot(aes(y=value), col="black", fill="white") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~name, scales="free", ncol=4)
+p2
+```
+
+## Normality Test
+
+```{r, normality_test}
+# Calculate mean and standard deviation
+mean <- mean(df1$SalePrice)
+sd <- sd(df1$SalePrice)
+
+# Create a variable of sequence from minimum to maximum with 0.01 increments
+x <- seq(min(df1$SalePrice), max(df1$SalePrice), length = 100)
+
+# Add a 'Density' column to the data
+data <- df1 %>%
+  mutate(Density = dnorm(SalePrice, mean = mean, sd = sd))
+
+# Generating the histogram
+ggplot(data, aes(x = SalePrice)) +
+  geom_histogram(aes(y = ..density..), bins = 30, colour = 'black', fill = 'white') +
+  geom_line(aes(y = Density), colour = 'red') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+shapiro.test(df1$SalePrice) ## It is not normal
+
+```
+
+## Test serial correlation
+
+```{r, serial correlation}
+acf(df1$SalePrice, main="Autocorrelation Sale Price") 
+dwtest(SalePrice ~1, data=df1)
+
+```
+
+There is no autocorrelation in the data as we see in the plot and in the Durbin Watson test. As the p-value is greater than .05.
+
+## Outliers transformation
+
+```{r, outlier_detection,fig.height=2, fig.width=4}
+## Looking at the data exploration part we can distinguish multiple columns which have outliers, we will plot a geom_histogram to see them better
+
+num_outliers <- c("BsmtFinSF1", "BsmtFinSF2", "BsmtHalfBath", "BsmtUnfSF", "EnclosedPorch", "GarageArea", "GrLivArea","LotArea", "LotFrontage", "LowQualFinSF", "MasVnrArea","MiscVal","OpenPorchSF","PoolArea","ScreenPorch","TotalBsmtSF", "WoodDeckSF","X1stFlrSF","X3SsnPorch")
+
+# Create a list to store the plots
+plots <- list()
+
+columna <- "MasVnrArea"
+# Loop through each numeric column
+for(i in 1:length(num_outliers)) {
+  columna <- num_outliers[i]
+  
+  # Calculate the thresholds
+  q1 <- quantile(df1[columna],0.25, na.rm = TRUE) 
+  q3 <- quantile(df1[columna],0.75, na.rm = TRUE) 
+  iqr <- q3 - q1
+  mild_l <- q1 - iqr*1.5
+  mild_h <- q3 + iqr*1.5
+  high_l <- q1 - iqr*3
+  high_h <- q3 + iqr*3
+  
+  # Create the plot
+  p <- ggplot(df1, aes(x=!!sym(columna))) +
+    geom_histogram(color="black", fill="white", bins=30) +
+    geom_vline(aes(xintercept=mild_l), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=mild_h), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=high_l), color="red", linetype="dashed") +
+    geom_vline(aes(xintercept=high_h), color="red", linetype="dashed") +
+    labs(x = columna, y="Frequency", title = paste("Histogram of", columna))
+  # Add the plot to the list
+  print(p)
+}
+
+```
+
+The transformations we will do to the variables are the following. For the numeric values that have mild and extreme boundaries in 0, as they have near zero variability we will convert them to categorical. For the ones that show extreme values we will created a logarithmic transformation and for those which have little extreme outliers we will keep them as they are but we will be careful to not influence the models with these observations. So for the first case we will transform BsmtFinSF2, EnclosedPorch, LowQualFinSF, MiscVal, PoolArea, ScreenPorch, MasVnrArea. For the second case we will create log variables for: LotArea, LotFrontage, TotalBsmtSF, we will sum 1 in order to avoid the log(0). And we will keep them as they are the rest of them. These transformations will be held in the steps of transformation and categorization.
+
+## NA imputation
+
+```{r Data Exploratory, fig}
+
+## Impute missing data by creating extra modality
 
 df1$FireplaceQu <- ifelse(df1$FireplaceQu %>% is.na, "NoFirePlace", df1$FireplaceQu)
 df1$BsmtExposure <- ifelse(df1$BsmtExposure %>% is.na, "NoBasement", df1$BsmtExposure)
 df1$BsmtFinType1 <- ifelse(df1$BsmtFinType1 %>% is.na, "NoBasement", df1$BsmtFinType1)
 df1$BsmtQual <- ifelse(df1$BsmtQual %>% is.na, "NoBasement", df1$BsmtQual)
-df1$GarageYrBlt <- df1$GarageYrBlt %>% as.numeric()
-
-
-df1 %>% create_report(
-  config = configure_report(
-    add_plot_str = FALSE,
-    add_plot_qq  = FALSE, 
-    add_plot_prcomp = FALSE,
-    add_plot_boxplot = TRUE
-  )
-)
 
 ## Impute with synthetic values
-df2 <- mice(df1)
+df2 <- mice(df1, method = "cart")
 
 df3 <- complete(df2)
 
-df3 %>% create_report(
-  config = configure_report(
-    add_plot_str = FALSE,
-    add_plot_qq  = FALSE, 
-    add_plot_prcomp = FALSE,
-    add_plot_boxplot = TRUE,
-  )
-)
-
-df3[cat_keep] <- lapply(df3[cat_keep], as.factor)
-df3 %>% glimpse ## Convert all str columns to factors
-
-
-### Outliers
-
-
-# Create a ggplot with a histogram
-p <- df3 %>%
-  ggplot(data = ., aes(x = SalePrice)) + 
-  geom_histogram(col="black", fill="white") +
-  theme_bw() +
-  theme(
-    panel.grid.major = element_line(color = "gray", size = 0.2, linetype = "dashed"),
-    panel.grid.minor = element_line(color = "gray", size = 0.2, linetype = "dashed")
-  )
-
-shapiro.test(df3$SalePrice) ## It is not normal
-
-## Test serial correlation
-
-acf(df3$SalePrice, main="Autocorrelation Sale Price")
-dwtest(SalePrice ~1, data=df3)
- 
-
-## There is no serial correlation
-
-# We have multiple outliers as we can see int he exploratory data analysis.
-# For the ones that almost all observations are 0, we will categorize them in order to capture this. 
-
-## For others some capping may be a good idea
+plot_missing(df3, missing_only = FALSE, group = list("Zero"=0,"Low" = 0.05, "Medium"=0.25, "High"=0.5, "Very High" =1), geom_label_args = list("size" = 1))
 
 ```
 
+After imputing the data logically, creating the levels NoFirePlace and NoBasement, we perform advanced imputation for imputing numerical values, creating sinthetic values.
+
+## Correlation Matrix
+
+```{r Correlation, fig.height=8, fig.width=8}
+
+
+df_num <- df3[order(numeric_columns, decreasing = TRUE)]
+
+plot_correlation(df_num)
+```
+
+## Numerical transformation
+
+```{r, log_transformation, fig.height=5, fig.width=10}
+df3$log_LotArea <- log(df3$LotArea + 1)
+df3$log_LotFrontage <- log(df3$LotFrontage + 1)
+df3$log_TotalBsmtSF <- log(df3$TotalBsmtSF + 1)
+
+g1 <- ggplot(df3) + geom_histogram(aes(x=log_LotArea))
+g2 <- ggplot(df3) + geom_histogram(aes(x=log_LotFrontage))
+g3 <- ggplot(df3) + geom_histogram(aes(x=log_TotalBsmtSF))
+
+grid.arrange(g1,g2,g3, ncol=3)
+
+df3$bsmt <- ifelse(df3$log_TotalBsmtSF == 0, "NO","YES")
+
+```
+
+In order to minimize the effect of 0 values in the dataset we will create a dummy variable for No Basement. It will be very useful for modelling as we will use it to create interactions with the numerical features.
+
+## Categorization transformation
+
+```{r, cat_transformation, fig.height=5, fig.width=10}
+
+df3$cat_BsmntFinSF2 <- ifelse(df3$BsmtFinSF2 > 0, "Yes","Zero")
+df3$cat_EnclosedPorch <- ifelse(df3$EnclosedPorch > 0, "Yes","Zero")
+df3$cat_LowQualFinSF <- ifelse(df3$LowQualFinSF > 0, "Yes","Zero")
+df3$cat_MiscVal <- ifelse(df3$MiscVal > 0, "Yes","Zero")
+df3$cat_PoolArea <- ifelse(df3$PoolArea > 0, "Yes","No")
+df3$cat_ScreenPorch <- ifelse(df3$ScreenPorch > 0, "Yes","No")
+df3$cat_X3SsnPorch <- ifelse(df3$X3SsnPorch > 0, "Yes","No")
+
+
+```
+
+## Interaction between numerical and categorical
+
+```{r}
+## Podemos hacer esto??
+df_pca <- df[c(numeric_columns,"Neighborhood", "LotShape")]
+
+FactoMineR::PCA(df_pca, quali.sup = c(37,38))
+
+```
+
+## Model
+
+```{r}
+## The responde to predict is SalePrice and we will consider all the variables at the beginning.
+df_model <- df3 %>% select(!c("LotArea","LotFrontage", "BsmtFinSF2","EnclosedPorch","LowQualFinSF","MiscVal","PoolArea","ScreenPorch","X3SsnPorch","TotalBsmtSF"))
+
+
+
+mod1 <- glm(SalePrice ~ . , data=df_model, family = "gaussian")
+mod1
+summary(mod1)
+vif(mod1)
+
+mod1$coefficients
+```
+
+# For the ones that almost all observations are 0, we will categorize them in order to capture this.
+
+## For others some capping may be a good idea
+
+\`\`\`
