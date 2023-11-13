@@ -10,7 +10,8 @@ library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(
 library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass)
 
 
-setwd("C:/MDS/SIM/Project")
+# setwd("C:/MDS/SIM/Project")
+setwd("C:/Users/usuario/Desktop/SIM/SIM-project")
 knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 
 
@@ -19,7 +20,8 @@ knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 ## Data Reading
 
 ```{r, read_data}
-df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+# df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+df <- read.csv("C:/Users/usuario/Desktop/SIM/SIM-project/data/train.csv")
 ```
 
 ## Keep columns
@@ -147,6 +149,43 @@ for(i in 1:length(num_outliers)) {
 }
 
 ```
+```{r, multivariate_outlier_detection}
+
+## ---- IÑIGO (TODAVIA ESTA MAL)
+
+df_clean = df[complete.cases(df[, num_outliers]), num_outliers]
+cor_matrix <- cor(df_clean[num_outliers], use = "complete.obs")
+
+# Obtener nombres de las columnas para referencia
+col_names <- colnames(cor_matrix)
+
+# Iterar sobre la matriz de correlación
+for (i in 1:nrow(cor_matrix)) {
+  for (j in 1:ncol(cor_matrix)) {
+    if ((cor_matrix[i, j] > 0.6 || cor_matrix[i, j] < -0.6) && i != j) {
+      cat(col_names[i], "-", col_names[j], "correlation:", cor_matrix[i, j], "\n")
+    }
+  }
+}
+
+# Crear una función para calcular el porcentaje de ceros
+porcentaje_ceros <- function(columna) {
+  return(sum(columna == 0) / length(columna) * 100)
+}
+
+# Aplicar la función a cada columna numérica y almacenar los resultados
+resultados <- sapply(df_clean[sapply(df_clean, is.numeric)], porcentaje_ceros)
+
+# Imprimir los resultados
+print(resultados)
+
+
+# TotalBsmtSF - X1stFlrSF correlation: 0.8319581
+# X1stFlrSF - TotalBsmtSF correlation: 0.8319581 
+num_outliers_2 <- c("BsmtFinSF1", "BsmtUnfSF", "EnclosedPorch", "GarageArea", "GrLivArea","LotArea", "LotFrontage", "MasVnrArea","OpenPorchSF","TotalBsmtSF", "WoodDeckSF","X1stFlrSF")
+res.out = Moutlier(df_clean[,num_outliers_2], quantile = 0.9995, col="green")
+
+```
 
 The transformations we will do to the variables are the following. For the numeric values that have mild and extreme boundaries in 0, as they have near zero variability we will convert them to categorical. For the ones that show extreme values we will created a logarithmic transformation and for those which have little extreme outliers we will keep them as they are but we will be careful to not influence the models with these observations. So for the first case we will transform BsmtFinSF2, EnclosedPorch, LowQualFinSF, MiscVal, PoolArea, ScreenPorch, MasVnrArea. For the second case we will create log variables for: LotArea, LotFrontage, TotalBsmtSF, we will sum 1 in order to avoid the log(0). And we will keep them as they are the rest of them. These transformations will be held in the steps of transformation and categorization.
 
@@ -240,6 +279,8 @@ summary(mod1)
 vif(mod1)
 
 mod1$coefficients
+
+
 ```
 
 # For the ones that almost all observations are 0, we will categorize them in order to capture this.
