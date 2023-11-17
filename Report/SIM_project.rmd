@@ -2,11 +2,12 @@
 title: "SIM - Project"
 author: "Ignacio Lloret and Iñigo Pikabea"
 date: "2023-10-09"
-output: 
-  html_document:
-  toc: true
+output:
+  word_document: default
+  toc: yes
   toc_depth: 3
-  toc_float: true
+  toc_float: yes
+  html_document: null
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +16,7 @@ library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library
 
 
 # setwd("C:/MDS/SIM/Project")
-setwd("C:/Users/inigo/Documents/UPC/SIM/SIM-project")
+#setwd("C:/Users/inigo/Documents/UPC/SIM/SIM-project")
 knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 
 
@@ -24,8 +25,8 @@ knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 ## Data Reading
 
 ```{r, read_data}
-# df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
-df <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/train.csv")
+df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+# df <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/train.csv")
 ```
 
 ## Keep columns
@@ -234,6 +235,7 @@ df3$cat_ScreenPorch <- ifelse(df3$ScreenPorch > 0, "Yes","No")
 df3$cat_X3SsnPorch <- ifelse(df3$X3SsnPorch > 0, "Yes","No")
 df3$remod <- ifelse(df3$YearRemodAdd == 0, "No", "Yes")
 
+df3$SaleCondition <- relevel(x=df3$SaleCondition, ref="Normal")
 ```
 
 ## Interaction between numerical and categorical
@@ -246,26 +248,29 @@ The second graph compares the sale price with the sale condition (SaleCondition)
 
 In the last graph, it's shown how the sale price varies with the quality of the kitchen (KitchenQual), which can be excellent, good, average, etc. The quality of a kitchen is a significant factor in property valuation. A high-quality kitchen can increase a property's value, while a low-quality one can decrease
 
-```{r}
+```{r, fig.height=8, fig.width=8}
 
-ggplot(data=df3) +
-  geom_boxplot(aes(y=SalePrice, x = Neighborhood, fill=Neighborhood))
+g1 <- ggplot(data=df3) +
+  geom_boxplot(aes(y=SalePrice, x = Neighborhood, fill=Neighborhood))  +
+    labs(title="SalePrice vs Neighborhood") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggplot(df, aes(x=MSZoning, y=SalePrice, fill=MSZoning)) +
+g2 <- ggplot(df, aes(x=MSZoning, y=SalePrice, fill=MSZoning)) +
     geom_boxplot() +
     labs(title="SalePrice vs MSZoning") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggplot(df, aes(x=SaleCondition, y=SalePrice, fill=SaleCondition)) +
+g3 <- ggplot(df, aes(x=SaleCondition, y=SalePrice, fill=SaleCondition)) +
     geom_boxplot() +
     labs(title="SalePrice vs SaleCondition") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggplot(df, aes(x=KitchenQual, y=SalePrice, fill=KitchenQual)) +
+g4 <- ggplot(df, aes(x=KitchenQual, y=SalePrice, fill=KitchenQual)) +
     geom_boxplot() +
     labs(title="SalePrice vs KitchenQual") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+g1
+grid.arrange(g2,g3,g4)
 
 ```
 
@@ -274,8 +279,9 @@ ggplot(df, aes(x=KitchenQual, y=SalePrice, fill=KitchenQual)) +
 In our analysis with the Moutlier function, we faced issues due to the poor distribution of some numeric variables, which caused computational errors. To resolve this, we excluded variables with fewer than 50 unique values. This step was necessary to ensure the effectiveness of the outlier detection process, as variables with limited unique values can hinder the accurate identification of outliers. Additionally, we identified and removed multivariate outliers (moutliers) from our training dataset. These outliers are observations that significantly deviate from the norm across several dimensions. Removing these moutliers is crucial for enhancing model accuracy, as they can skew results and lead to misleading interpretations.
 
 ```{r}
-
+set.seed(1)
 numeric_columns <- c("log_LotFrontage", "log_LotArea", "MasVnrArea", "BsmtFinSF1", "BsmtUnfSF", "log_TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "MoSold", "YrSold", "OverallCond","OverallQual","SalePrice")
+
 
 df_clean = df3[complete.cases(df3[, numeric_columns]), numeric_columns]
 
@@ -288,23 +294,17 @@ threshold <- 50
 filtered_numeric_vars <- sapply(data_numeric, function(x) length(unique(x)) > threshold)
 final_numeric_data <- data_numeric[, filtered_numeric_vars]
 
-
-names(final_numeric_data)
-
 res.out = Moutlier(final_numeric_data[, !(names(final_numeric_data) %in% c("LotFrontage", "log_LotArea", "TotalBsmtSF", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF2", "X2ndFlrSF", "WoodDeckSF", "EnclosedPorch", "ScreenPorch"))], quantile = 0.9995, col="green")
 
 outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
 length(outlier_index)
-
-# [1] 39
 
 par(mfrow=c(1,1))
 plot( res.out$md, res.out$rd )
 abline(h=res.out$cutoff, col="red")
 abline(v=res.out$cutoff, col="red")
 
-df3 <- df3[!outlier_index, ]
-
+df3 <- df3[-outlier_index, ]
 ```
 
 ## Model
@@ -432,30 +432,35 @@ plot(mod1)
 par(mfrow=c(1,1))
 influencePlot(mod1)
 
-par(mfrow=c(1,3))
-hist(df3$SalePrice, xlab = "Sale Price")
-hist(df3$LotArea, xlab= "Lot Area")
-hist(df3$X1stFlrSF, xlab= "SF first floor")
-
-df3[c(524, 1299),] %>% select("LotArea","X1stFlrSF","SalePrice")
-
-## These are outliers because even though the house is very big, the price is not. We will remove them in order to generalize better.
-
-df_model1 <- df_model[-c(524, 1299),]
-
-mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model1)
+mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch + SaleCondition, data=df_model)
 
 par(mfrow=c(2,2))
 plot(mod2)
 
 par(mfrow=c(1,1))
 influencePlot(mod2)
+## Delete non significant 
+summary(mod2)
+mod3 <- lm(log(SalePrice) ~ log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch + SaleCondition, data=df_model)
+summary(mod3)
 
 ```
 
 ## Interpretation of the model
+```{r}
 
-As we can see in the summary of model we selected all variables that are significant in order to predict the Sale Price. We have an overall R-squared of r r2 and an Adjusted R-squared of r adj.r2 and the p-value of the model is << 0.05, so we can say it is significant and the variables can predict in some way the response variable. 
+smod <- summary(mod3)
+vif(mod2) %>% round(2) %>% t
+
+mod2$coefficients %>% round(5)
+r2 <- smod$r.squared %>% round(2)
+adj.r2 <- smod$adj.r.squared %>% round(2)
+smod
+
+
+```
+
+As we can see in the summary of model we selected all variables that are significant in order to predict the Sale Price. We have an overall R-squared of `r r2` and an Adjusted R-squared of `r adj.r2` and the p-value of the model is << 0.05, so we can say it is significant and the variables can predict in some way the response variable. 
 
 Taking a deeper look at each coefficient we can conclude that Lot Area is positively correlated to Price, as well as 1st floor Squared Feet meters and 2nd floor Squared feet meters. Also Year Built is positively correlated with Price, so newer houses are more expensive. The number of cars that the garage can fit is positively correlated, also the bedroom above gradem, and kitchen above grade are positively correlated with Price.
 
@@ -471,23 +476,13 @@ The Screen Porch area is significant and is positively correlated with Price.
 
 The Sale condition reduces the price with the reference level "Normal" when comparing with Abnormal and Family, in contrast increases the price when the Sale Condition is partial.
 
-```{r}
-smod <- summary(mod3)
-vif(mod2) %>% round(2) %>% t
-
-mod2$coefficients %>% round(5)
-r2 <- smod$r.squared %>% round(2)
-adj.r2 <- smod$adj.r.squared %>% round(2)
-smod
-```
-
 
 ## Test Preprocessing
 
 ```{r, message=FALSE}
 
-df_test <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/test.csv")
-# df_test <- read.csv("C:/MDS/SIM/Project/data/test.csv")
+#df_test <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/test.csv")
+df_test <- read.csv("C:/MDS/SIM/Project/data/test.csv")
 
 numeric_columns <- c("LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "LowQualFinSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "EnclosedPorch", "X3SsnPorch", "ScreenPorch", "PoolArea", "MiscVal", "MoSold", "YrSold", "OverallCond","OverallQual")
 
@@ -500,21 +495,6 @@ df1_test[numeric_columns] <- lapply(df1_test[numeric_columns], as.numeric)
 
 num_outliers <- c("BsmtFinSF1", "BsmtFinSF2", "BsmtHalfBath", "BsmtUnfSF", "EnclosedPorch", "GarageArea", "GrLivArea","LotArea", "LotFrontage", "LowQualFinSF", "MasVnrArea","MiscVal","OpenPorchSF","PoolArea","ScreenPorch","TotalBsmtSF", "WoodDeckSF","X1stFlrSF","X3SsnPorch")
 
-columna <- "MasVnrArea"
-# Loop through each numeric column
-for(i in 1:length(num_outliers)) {
-  columna <- num_outliers[i]
-  
-  # Calculate the thresholds
-  q1 <- quantile(df1_test[columna],0.25, na.rm = TRUE) 
-  q3 <- quantile(df1_test[columna],0.75, na.rm = TRUE) 
-  iqr <- q3 - q1
-  mild_l <- q1 - iqr*1.5
-  mild_h <- q3 + iqr*1.5
-  high_l <- q1 - iqr*3
-  high_h <- q3 + iqr*3
-}
-
 
 ## Impute missing data by creating extra modality
 
@@ -525,9 +505,6 @@ df1_test$BsmtQual <- ifelse(df1_test$BsmtQual %>% is.na, "NoBasement", df1_test$
 
 df1_test$garage <- ifelse(df1_test$GarageYrBlt %>% is.na, "NO", "YES")
 ## Impute with synthetic values
-
-plot_missing(df1_test, missing_only = TRUE)
-plot_missing(df1, missing_only = TRUE)
 
 df2_test <- mice(df1_test, method = "cart", m = 1)
 
@@ -597,9 +574,9 @@ df_model_test <- df3_test %>% select(
 )
 attach(df_model_test)
 
-df_model_test$MSSubClass %>% table
+df_model_test <- df_model_test[df_model_test$MSSubClass %in% (df_model$MSSubClass %>% unique), ]
+df_model_test <- df_model_test[df_model_test$Neighborhood %in% (df_model$Neighborhood %>% unique), ]
 
-df_model_test <- df_model_test[!df_model_test$MSSubClass %in% c("150"), ]
 
 predictions <- predict(mod2, newdata = df_model_test, type = "response")
 
@@ -607,10 +584,13 @@ final_predictions <- exp(predictions)
 
 
 ## Assessing forecasting capabilities
-smp <- sample(x=nrow(df_model1),nrow(df_model1)*0.75, replace=FALSE)
+smp <- sample(x=nrow(df_model),nrow(df_model)*0.75, replace=FALSE)
 
-train <- df_model1[smp,]
-test <- df_model1[-smp,]
+train <- df_model[smp,]
+test <- df_model[-smp,]
+
+test <- test[test$MSSubClass %in% (train$MSSubClass %>% unique), ]
+test <- test[test$Neighborhood %in% (train$Neighborhood %>% unique), ]
 
 
 mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=train)
@@ -620,7 +600,7 @@ predictions <- exp(predictions)
 
 deviation <- (test$SalePrice - predictions)/test$SalePrice
 deviation_abs <- (abs(test$SalePrice - predictions)/test$SalePrice)
-mean(deviation)
+mean(deviation_abs)
 ## The median deviation is 8.8% 
 
 g1 <- ggplot() + geom_jitter(mapping = aes(x=test$SalePrice, y=deviation, colour=deviation))
