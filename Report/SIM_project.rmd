@@ -28,7 +28,7 @@ df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
 ##################
 numeric_columns <- c("LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "LowQualFinSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "EnclosedPorch", "X3SsnPorch", "ScreenPorch", "PoolArea", "MiscVal", "MoSold", "YrSold", "OverallCond","OverallQual","SalePrice")
 
-cat_keep <- c("FireplaceQu","KitchenQual","BsmtFinType1","BsmtExposure","BsmtQual","Foundation","Neighborhood","LotShape","MSSubClass","Exterior1st","Exterior2nd")
+cat_keep <- c("FireplaceQu","KitchenQual","BsmtFinType1","BsmtExposure","BsmtQual","Foundation","Neighborhood","LotShape","MSSubClass","Exterior1st","Exterior2nd", "SaleCondition")
 
 df1 <- df %>% select(all_of(numeric_columns), all_of(cat_keep))
 ```
@@ -78,6 +78,7 @@ p2
 ## Normality Test
 
 ```{r, normality_test}
+library(stats)
 # Calculate mean and standard deviation
 mean <- mean(df1$SalePrice)
 sd <- sd(df1$SalePrice)
@@ -146,6 +147,51 @@ for(i in 1:length(num_outliers)) {
   print(p)
 }
 
+
+## Multivariate 
+
+numeric_columns <- c("log_LotFrontage", "log_LotArea", "MasVnrArea", "BsmtFinSF1", "BsmtUnfSF", "log_TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "MoSold", "YrSold", "OverallCond","OverallQual","SalePrice")
+
+df_clean = df3[complete.cases(df3[, numeric_columns]), numeric_columns]
+
+sum(is.na(df_clean)) # Verificar valores faltantes
+
+data_numeric <- df3[, sapply(df_clean, is.numeric)] # Filtra solo las variables numéricas
+
+# Establece un umbral para el número de valores únicos
+threshold <- 50
+
+# Filtra las variables que tienen más valores únicos que el umbral
+filtered_numeric_vars <- sapply(data_numeric, function(x) length(unique(x)) > threshold)
+final_numeric_data <- data_numeric[, filtered_numeric_vars]
+
+
+names(final_numeric_data)
+
+cor_matrix <- cor(final_numeric_data, use = "complete.obs")
+
+high_cor_pairs <- which(abs(cor_matrix) > 0.7 & cor_matrix != 1, arr.ind = TRUE)
+
+# Imprimiendo las parejas de variables con alta correlación
+if (length(high_cor_pairs) > 0) {
+    for (i in 1:nrow(high_cor_pairs)) {
+        row <- high_cor_pairs[i, 1]
+        col <- high_cor_pairs[i, 2]
+        if (row < col) {  # Para evitar imprimir el mismo par dos veces
+            cat(names(final_numeric_data)[row], "-", names(final_numeric_data)[col], ":", cor_matrix[row, col], "\n")
+        }
+    }
+} else {
+    cat("No hay pares de variables con correlación > 0.7\n")
+}
+
+
+# TotalBsmtSF - X1stFlrSF : 0.8319581 
+# GrLivArea - SalePrice : 0.7044477
+
+res.out = Moutlier(final_numeric_data[, !(names(final_numeric_data) %in% c("MasVnrArea", "BsmtFinSF2", "X2ndFlrSF", "WoodDeckSF", "EnclosedPorch", "ScreenPorch"))], quantile = 0.9995, col="green")
+
+
 ```
 
 The transformations we will do to the variables are the following. For the numeric values that have mild and extreme boundaries in 0, as they have near zero variability we will convert them to categorical. For the ones that show extreme values we will created a logarithmic transformation and for those which have little extreme outliers we will keep them as they are but we will be careful to not influence the models with these observations. So for the first case we will transform BsmtFinSF2, EnclosedPorch, LowQualFinSF, MiscVal, PoolArea, ScreenPorch, MasVnrArea. For the second case we will create log variables for: LotArea, LotFrontage, TotalBsmtSF, we will sum 1 in order to avoid the log(0). And we will keep them as they are the rest of them. These transformations will be held in the steps of transformation and categorization.
@@ -161,6 +207,7 @@ df1$BsmtExposure <- ifelse(df1$BsmtExposure %>% is.na, "NoBasement", df1$BsmtExp
 df1$BsmtFinType1 <- ifelse(df1$BsmtFinType1 %>% is.na, "NoBasement", df1$BsmtFinType1)
 df1$BsmtQual <- ifelse(df1$BsmtQual %>% is.na, "NoBasement", df1$BsmtQual)
 
+df1$garage <- ifelse(df1$GarageYrBlt %>% is.na, "NO", "YES")
 ## Impute with synthetic values
 df2 <- mice(df1, method = "cart")
 
@@ -189,6 +236,8 @@ df3$log_LotArea <- log(df3$LotArea + 1)
 df3$log_LotFrontage <- log(df3$LotFrontage + 1)
 df3$log_TotalBsmtSF <- log(df3$TotalBsmtSF + 1)
 
+df3$YearRemodAdd <- df3$YearRemodAdd - df3$YearBuilt
+
 g1 <- ggplot(df3) + geom_histogram(aes(x=log_LotArea))
 g2 <- ggplot(df3) + geom_histogram(aes(x=log_LotFrontage))
 g3 <- ggplot(df3) + geom_histogram(aes(x=log_TotalBsmtSF))
@@ -212,7 +261,7 @@ df3$cat_MiscVal <- ifelse(df3$MiscVal > 0, "Yes","Zero")
 df3$cat_PoolArea <- ifelse(df3$PoolArea > 0, "Yes","No")
 df3$cat_ScreenPorch <- ifelse(df3$ScreenPorch > 0, "Yes","No")
 df3$cat_X3SsnPorch <- ifelse(df3$X3SsnPorch > 0, "Yes","No")
-
+df3$remod <- ifelse(df3$YearRemodAdd == 0, "No", "Yes")
 
 ```
 
@@ -224,22 +273,172 @@ df_pca <- df[c(numeric_columns,"Neighborhood", "LotShape")]
 
 FactoMineR::PCA(df_pca, quali.sup = c(37,38))
 
+ggplot(data=df3) +
+  geom_boxplot(aes(y=SalePrice, x = Neighborhood, fill=Neighborhood))
+
+ggplot(df, aes(x=MSZoning, y=SalePrice, fill=MSZoning)) +
+    geom_boxplot() +
+    labs(title="SalePrice vs MSZoning") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(df, aes(x=SaleCondition, y=SalePrice, fill=SaleCondition)) +
+    geom_boxplot() +
+    labs(title="SalePrice vs SaleCondition") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(df, aes(x=KitchenQual, y=SalePrice, fill=KitchenQual)) +
+    geom_boxplot() +
+    labs(title="SalePrice vs KitchenQual") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
 ```
+
+The first graph shows the variation in sale prices of properties across different Neighborhoods.. The neighorhood can significantly influence its sale price.This graph helps to understand if certain neighorhoods have higher or lower average prices.
+
+The second graph shows the variation in sale prices of properties across different municipal zoning classifications (MSZoning), which may include residential, commercial, agricultural, etc. The zoning of a property can significantly influence its sale price due to factors such as proximity to amenities, population density, and municipal regulations. This graph helps to understand if certain zones have higher or lower average prices.
+
+The second graph compares the sale price with the sale condition (SaleCondition), which includes categories like normal, foreclosure, and urgency sale. The condition of the sale can reflect specific circumstances that affect the price, like urgent sales that might result in lower prices or normal condition sales that might reflect the market value. This analysis helps to identify if certain sale conditions are associated with significant price variations.
+
+In the last graph, it's shown how the sale price varies with the quality of the kitchen (KitchenQual), which can be excellent, good, average, etc. The quality of a kitchen is a significant factor in property valuation. A high-quality kitchen can increase a property's value, while a low-quality one can decrease
 
 ## Model
 
 ```{r}
-## The responde to predict is SalePrice and we will consider all the variables at the beginning.
-df_model <- df3 %>% select(!c("LotArea","LotFrontage", "BsmtFinSF2","EnclosedPorch","LowQualFinSF","MiscVal","PoolArea","ScreenPorch","X3SsnPorch","TotalBsmtSF"))
+## First we will add all the variables that are do not have correlation between each other. We have iterated to keep those that are not multicolinear with each other by adding and removing. But keeping always the ones that we preprocessed.
+
+df_model <- df3 %>% select(
+  c(
+    "log_LotFrontage",
+    "log_LotArea",
+    "YearBuilt",
+    "YearRemodAdd",
+    "FullBath",
+    "garage",
+    "GarageArea",
+    "bsmt",
+    "log_TotalBsmtSF",
+    "cat_PoolArea",
+    "YrSold",
+    "MoSold",
+    "remod",
+    "GarageCars",
+    "GarageYrBlt",
+    "BedroomAbvGr",
+    "KitchenAbvGr",
+    "TotRmsAbvGrd",
+    "Neighborhood",
+    "GrLivArea",
+    "MSSubClass",
+    "X1stFlrSF",
+    "X2ndFlrSF",
+    "OverallCond",
+    "OverallQual",
+    "FireplaceQu",
+    "cat_MiscVal",
+    "OpenPorchSF", 
+    "cat_EnclosedPorch",
+    "cat_LowQualFinSF",
+    "cat_X3SsnPorch",
+    "ScreenPorch",
+    "Foundation",
+    "Exterior1st",
+    "Exterior2nd",
+    "SaleCondition",
+    "SalePrice"
+    )
+)
 
 
+attach(df_model)
+mod1_raw <- glm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + YearRemodAdd + FullBath + GarageArea + GarageCars + GarageYrBlt:garage + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + cat_PoolArea + YrSold:MoSold + OverallCond + OverallQual + FireplaceQu + cat_MiscVal + OpenPorchSF + EnclosedPorch + ScreenPorch + Foundation +SaleCondition, data=df_model, family = "gaussian")
+summary(mod1_raw)
+vif(mod1_raw) %>% round(2)
 
-mod1 <- glm(SalePrice ~ . , data=df_model, family = "gaussian")
-mod1
+
+```
+
+## Pruned model
+
+```{r}
+## Deleting not significant variables 
+df_model <- df3 %>% select(
+  c(
+    "log_LotFrontage",
+    "log_LotArea",
+    "YearBuilt",
+    "YearRemodAdd",
+    "FullBath",
+    "garage",
+    "GarageArea",
+    "bsmt",
+    "log_TotalBsmtSF",
+    "cat_PoolArea",
+    "YrSold",
+    "MoSold",
+    "remod",
+    "GarageCars",
+    "GarageYrBlt",
+    "BedroomAbvGr",
+    "KitchenAbvGr",
+    "TotRmsAbvGrd",
+    "Neighborhood",
+    "GrLivArea",
+    "MSSubClass",
+    "X1stFlrSF",
+    "X2ndFlrSF",
+    "OverallCond",
+    "OverallQual",
+    "FireplaceQu",
+    "cat_MiscVal",
+    "OpenPorchSF", 
+    "cat_EnclosedPorch",
+    "cat_LowQualFinSF",
+    "cat_X3SsnPorch",
+    "ScreenPorch",
+    "Foundation",
+    "Exterior1st",
+    "Exterior2nd",
+    "SaleCondition",
+    "SalePrice"
+    )
+)
+attach(df_model)
+mod1 <- glm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + SaleCondition + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model, family = "gaussian")
 summary(mod1)
-vif(mod1)
+vif(mod1) %>% round(2)
 
-mod1$coefficients
+## Stepwise 
+
+mod_step <- step(mod1_raw, trace = FALSE)
+summary(mod_step)
+
+## So in the end little difference from removing not significant variables we will keep mod1 as the final one. 
+```
+
+## Validation 
+
+```{r}
+
+plot(mod1)
+influencePlot(mod1)
+
+hist(df3$SalePrice)
+hist(df3$LotArea)
+hist(df3$X1stFlrSF)
+df3[c(524, 1299),] %>% select("LotArea","X1stFlrSF","SalePrice") 
+
+## These are outliers because even though the house is very big, the price is not. We will remove them in order to generalize better.
+df_model1 <- df_model[-c(524, 1299),]
+
+mod2 <- glm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model1, family = "gaussian")
+
+plot(mod2)
+influencePlot(mod2)
+
+summary(mod2)
 ```
 
 # For the ones that almost all observations are 0, we will categorize them in order to capture this.
