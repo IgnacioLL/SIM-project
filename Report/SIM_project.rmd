@@ -162,11 +162,13 @@ col_names <- colnames(cor_matrix)
 # Iterar sobre la matriz de correlación
 for (i in 1:nrow(cor_matrix)) {
   for (j in 1:ncol(cor_matrix)) {
-    if ((cor_matrix[i, j] > 0.6 || cor_matrix[i, j] < -0.6) && i != j) {
+    if ((cor_matrix[i, j] > 0.4 || cor_matrix[i, j] < -0.4) && i != j) {
       cat(col_names[i], "-", col_names[j], "correlation:", cor_matrix[i, j], "\n")
     }
   }
 }
+
+# Mirar cuales son las variables con correlacion mas alta entre ellas y agruparlas para buscar Moutliers entre ellas
 
 # Crear una función para calcular el porcentaje de ceros
 porcentaje_ceros <- function(columna) {
@@ -182,8 +184,8 @@ print(resultados)
 
 # TotalBsmtSF - X1stFlrSF correlation: 0.8319581
 # X1stFlrSF - TotalBsmtSF correlation: 0.8319581 
-num_outliers_2 <- c("BsmtFinSF1", "BsmtUnfSF", "EnclosedPorch", "GarageArea", "GrLivArea","LotArea", "LotFrontage", "MasVnrArea","OpenPorchSF","TotalBsmtSF", "WoodDeckSF","X1stFlrSF")
-res.out = Moutlier(df_clean[,num_outliers_2], quantile = 0.9995, col="green")
+
+res.out = Moutlier(df_clean[,num_outliers], quantile = 0.9995, col="green")
 
 ```
 
