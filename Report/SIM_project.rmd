@@ -412,30 +412,36 @@ vif(mod1) %>% round(2) %>% t
 mod_step <- step(mod1_raw, trace = FALSE)
 summary(mod_step)
 
-## So in the end little difference from removing not significant variables we will keep mod1 as the final one. 
+## So in the end little difference from removing not significant variables with the stepwise procedure. We will keep mod1 as the final one. 
 ```
 
 ## Validation
 
 ```{r}
-
+par(mfrow=c(2,2))
 plot(mod1)
 
 ## We can see that the extreme values are not being predicted very well so we will apply a log transformation in order to improve the performance. 
-
+par(mfrow=c(1,1))
 influencePlot(mod1)
 
-hist(df3$SalePrice)
-hist(df3$LotArea)
-hist(df3$X1stFlrSF)
-df3[c(524, 1299),] %>% select("LotArea","X1stFlrSF","SalePrice") 
+par(mfrow=c(1,3))
+hist(df3$SalePrice, xlab = "Sale Price")
+hist(df3$LotArea, xlab= "Lot Area")
+hist(df3$X1stFlrSF, xlab= "SF first floor")
+
+df3[c(524, 1299),] %>% select("LotArea","X1stFlrSF","SalePrice")
 
 ## These are outliers because even though the house is very big, the price is not. We will remove them in order to generalize better.
+
 df_model1 <- df_model[-c(524, 1299),]
 
 mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model1)
 
+par(mfrow=c(2,2))
 plot(mod2)
+
+par(mfrow=c(1,1))
 influencePlot(mod2)
 
 ```
@@ -452,7 +458,7 @@ smod
 
 ## Test Preprocessing
 
-```{r}
+```{r, message=FALSE}
 
 # df_test <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/test.csv")
 df_test <- read.csv("C:/MDS/SIM/Project/data/test.csv")
