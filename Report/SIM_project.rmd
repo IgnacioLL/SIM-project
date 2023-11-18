@@ -10,8 +10,8 @@ library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(
 library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass)
 
 
-setwd("C:/MDS/SIM/Project")
-# setwd("C:/Users/inigo/Documents/UPC/SIM/SIM-project")
+# setwd("C:/MDS/SIM/Project")
+setwd("C:/Users/inigo/Documents/UPC/SIM/SIM-project")
 knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 
 
@@ -20,8 +20,8 @@ knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 ## Data Reading
 
 ```{r, read_data}
-df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
-# df <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/train.csv")
+# df <- read.csv("C:/MDS/SIM/Project/data/train.csv")
+df <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/train.csv")
 ```
 
 ## Keep columns
@@ -115,7 +115,7 @@ There is no autocorrelation in the data as we see in the plot and in the Durbin 
 
 ## Outliers transformation
 
-```{r, eval=FALSE, outlier_detection,fig.height=2, fig.width=4}
+```{r, outlier_detection,fig.height=2, fig.width=4}
 ## Looking at the data exploration part we can distinguish multiple columns which have outliers, we will plot a geom_histogram to see them better
 
 num_outliers <- c("BsmtFinSF1", "BsmtFinSF2", "BsmtHalfBath", "BsmtUnfSF", "EnclosedPorch", "GarageArea", "GrLivArea","LotArea", "LotFrontage", "LowQualFinSF", "MasVnrArea","MiscVal","OpenPorchSF","PoolArea","ScreenPorch","TotalBsmtSF", "WoodDeckSF","X1stFlrSF","X3SsnPorch")
@@ -259,7 +259,7 @@ The second graph shows the variation in sale prices of properties across differe
 
 The second graph compares the sale price with the sale condition (SaleCondition), which includes categories like normal, foreclosure, and urgency sale. The condition of the sale can reflect specific circumstances that affect the price, like urgent sales that might result in lower prices or normal condition sales that might reflect the market value. This analysis helps to identify if certain sale conditions are associated with significant price variations.
 
-In the last graph, it's shown how the sale price varies with the quality of the kitchen (KitchenQual), which can be excellent, good, average, etc. The quality of a kitchen is a significant factor in property valuation. A high-quality kitchen can increase a property's value, while a low-quality one can decrease
+In the last graph, it's shown how the sale price varies with the quality of the kitchen (KitchenQual), which can be excellent, good, average, etc. The quality of a kitchen is a significant factor in property valuation. A high-quality kitchen can increase a property's value, while a low-quality one can decrease
 
 ### Multivariate outliers
 
@@ -283,20 +283,20 @@ final_numeric_data <- data_numeric[, filtered_numeric_vars]
 
 names(final_numeric_data)
 
-# res.out = Moutlier(final_numeric_data[, !(names(final_numeric_data) %in% c("YearRemodAdd", # "MasVnrArea", "BsmtFinSF2", "X2ndFlrSF", "WoodDeckSF", "EnclosedPorch", "ScreenPorch"))], quantile = # 0.9995, col="green")
-# 
-# 
-# outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
-# length(outlier_index)
-# 
-# # [1] 39
-# 
-# par(mfrow=c(1,1))
-# plot( res.out$md, res.out$rd )
-# abline(h=res.out$cutoff, col="red")
-# abline(v=res.out$cutoff, col="red")
-# 
-# df3 <- df3[!outlier_index, ]
+res.out = Moutlier(final_numeric_data[, !(names(final_numeric_data) %in% c("YearRemodAdd", "MasVnrArea", "BsmtFinSF2", "X2ndFlrSF", "WoodDeckSF", "EnclosedPorch", "ScreenPorch"))], quantile = 0.9995, col="green")
+
+
+outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
+length(outlier_index)
+
+# [1] 39
+
+par(mfrow=c(1,1))
+plot( res.out$md, res.out$rd )
+abline(h=res.out$cutoff, col="red")
+abline(v=res.out$cutoff, col="red")
+
+df3 <- df3[!outlier_index, ]
 
 ```
 
@@ -349,9 +349,9 @@ df_model <- df3 %>% select(
 
 
 attach(df_model)
-mod1_raw <- lm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + YearRemodAdd + FullBath + GarageArea + GarageCars + GarageYrBlt:garage + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + cat_PoolArea + YrSold:MoSold + OverallCond + OverallQual + FireplaceQu + cat_MiscVal + OpenPorchSF + ScreenPorch + Foundation +SaleCondition, data=df_model)
+mod1_raw <- glm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + YearRemodAdd + FullBath + GarageArea + GarageCars + GarageYrBlt:garage + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + cat_PoolArea + YrSold:MoSold + OverallCond + OverallQual + FireplaceQu + cat_MiscVal + OpenPorchSF + ScreenPorch + Foundation +SaleCondition, data=df_model, family = "gaussian")
 summary(mod1_raw)
-vif(mod1_raw) %>% round(2) %>% t
+vif(mod1_raw) %>% round(2)
 
 
 ```
@@ -402,10 +402,11 @@ df_model <- df3 %>% select(
     )
 )
 attach(df_model)
-mod1 <- lm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + SaleCondition + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model)
+mod1 <- glm(SalePrice ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + SaleCondition + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model, family = "gaussian")
 summary(mod1)
-vif(mod1) %>% round(2) %>% t
+vif(mod1) %>% round(2)
 
+mod1$coefficients
 
 ## Stepwise 
 
@@ -420,9 +421,6 @@ summary(mod_step)
 ```{r}
 
 plot(mod1)
-
-## We can see that the extreme values are not being predicted very well so we will apply a log transformation in order to improve the performance. 
-
 influencePlot(mod1)
 
 hist(df3$SalePrice)
@@ -433,29 +431,19 @@ df3[c(524, 1299),] %>% select("LotArea","X1stFlrSF","SalePrice")
 ## These are outliers because even though the house is very big, the price is not. We will remove them in order to generalize better.
 df_model1 <- df_model[-c(524, 1299),]
 
-mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model1)
+mod2 <- glm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=df_model1, family = "gaussian")
 
 plot(mod2)
 influencePlot(mod2)
 
+summary(mod2)
 ```
-
-## Interpretation of the model
-
-```{r}
-smod <- summary(mod2)
-smod
-```
-
-
-
 
 ## Test Preprocessing
 
 ```{r}
 
-# df_test <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/test.csv")
-df_test <- read.csv("C:/MDS/SIM/Project/data/test.csv")
+df_test <- read.csv("C:/Users/inigo/Documents/UPC/SIM/SIM-project/data/test.csv")
 
 numeric_columns <- c("LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "X1stFlrSF", "X2ndFlrSF", "LowQualFinSF", "GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces", "GarageYrBlt", "GarageCars", "GarageArea", "WoodDeckSF", "OpenPorchSF", "EnclosedPorch", "X3SsnPorch", "ScreenPorch", "PoolArea", "MiscVal", "MoSold", "YrSold", "OverallCond","OverallQual")
 
@@ -493,11 +481,7 @@ df1_test$BsmtQual <- ifelse(df1_test$BsmtQual %>% is.na, "NoBasement", df1_test$
 
 df1_test$garage <- ifelse(df1_test$GarageYrBlt %>% is.na, "NO", "YES")
 ## Impute with synthetic values
-
-plot_missing(df1_test, missing_only = TRUE)
-plot_missing(df1, missing_only = TRUE)
-
-df2_test <- mice(df1_test, method = "cart", m = 1)
+df2_test <- mice(df1_test, method = "cart")
 
 df3_test <- complete(df2_test)
 
@@ -519,7 +503,6 @@ df3_test$cat_X3SsnPorch <- ifelse(df3_test$X3SsnPorch > 0, "Yes","No")
 df3_test$remod <- ifelse(df3_test$YearRemodAdd == 0, "No", "Yes")
 
 ```
-
 # Predictions of the test data
 ```{r}
 
@@ -565,57 +548,20 @@ df_model_test <- df3_test %>% select(
 )
 attach(df_model_test)
 
-df_model_test$MSSubClass %>% table
-
 df_model_test <- df_model_test[!df_model_test$MSSubClass %in% c("150"), ]
 
-predictions <- predict(mod2, newdata = df_model_test, type = "response")
+predictions <- predict(mod1, newdata = df_model_test, type = "response")
 
-final_predictions <- exp(predictions)
+# Evaluar las predicciones (ejemplo usando RMSE)
+actual_values <- df_model_test$SalePrice  # Asegúrate de que 'SalePrice' está en tus datos de prueba
+RMSE <- sqrt(mean((predictions - actual_values)^2))
+print(RMSE)
 
-
-## Assessing forecasting capabilities
-smp <- sample(x=nrow(df_model1),nrow(df_model1)*0.75, replace=FALSE)
-
-train <- df_model1[smp,]
-test <- df_model1[-smp,]
-
-
-mod2 <- lm(log(SalePrice) ~ log_LotFrontage + log_LotArea + X1stFlrSF + X2ndFlrSF + YearBuilt + GarageCars + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + Neighborhood + MSSubClass + log_TotalBsmtSF + OverallCond + OverallQual + FireplaceQu + ScreenPorch, data=train)
-
-predictions <- predict(mod2, test)
-predictions <- exp(predictions)
-
-deviation <- (test$SalePrice - predictions)/test$SalePrice
-deviation_abs <- (abs(test$SalePrice - predictions)/test$SalePrice)
-mean(deviation)
-## The median deviation is 8.8% 
-
-g1 <- ggplot() + geom_jitter(mapping = aes(x=test$SalePrice, y=deviation, colour=deviation))
-g2 <- ggplot() + geom_histogram(mapping = aes(x=deviation), fill="white", colour="black")
-g3 <- ggplot() + geom_boxplot(mapping = aes(y=deviation), fill="cyan", colour="black")
-
-
-
-# Create a data frame for the overlay
-overlay_data <- data.frame(
-  value = c(predictions, test$SalePrice),
-  group = rep(c("Predictions", "Actual"), 
-              each = c(length(predictions), length(test$SalePrice))
-              )
-)
-
-# Create the histogram with ggplot2
-g4 <- ggplot(overlay_data, aes(x = value, fill = group)) +
-  geom_histogram(position = "identity", alpha = 0.5, bins = 30) +
-  labs(title = "Histogram Overlay of Predictions and Actual SalePrice",
-       x = "Sale Price",
-       y = "Frequency") +
-  scale_fill_manual(values = c("blue", "red")) 
-## The distributions look very similar
-
-
-grid.arrange(g1,g2,g3,g4)
+predictions
 ```
 
+# For the ones that almost all observations are 0, we will categorize them in order to capture this.
 
+## For others some capping may be a good idea
+
+\`\`\`
