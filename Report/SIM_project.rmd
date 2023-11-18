@@ -455,8 +455,29 @@ influencePlot(mod2)
 
 ## Interpretation of the model
 
+As we can see in the summary of model we selected all variables that are significant in order to predict the Sale Price. We have an overall R-squared of r r2 and an Adjusted R-squared of r adj.r2 and the p-value of the model is << 0.05, so we can say it is significant and the variables can predict in some way the response variable. 
+
+Taking a deeper look at each coefficient we can conclude that Lot Area is positively correlated to Price, as well as 1st floor Squared Feet meters and 2nd floor Squared feet meters. Also Year Built is positively correlated with Price, so newer houses are more expensive. The number of cars that the garage can fit is positively correlated, also the bedroom above gradem, and kitchen above grade are positively correlated with Price.
+
+As for the neighorhoods the reference level is Blmngtn that as we can see in the "Interaction between numerical and categorical" section has a mild average and distribution compared to the others. We can see this also in the model as the significant neighorhoods are IDOTRR with an expected lower price over Blmngtn and NridgHt, Somerst, Crawfor and StoneBr with an expected higher price over Blmngtn, 
+
+As for MSSubClass the reference level is the level 20 - "1-STORY 1946 & NEWER ALL STYLES". We have little significant factors with this reference level, we will expect lowe prices for the level 30 -  1-STORY 1945 & OLDER and level 160 - "2-STORY PUD - 1946 & NEWER". 
+
+Moreover we have negative correlation in the No Fireplaces comparing it with the reference level 1 fireplace. The rest of the levels are not significant compared with the level 1. 
+
+Overall Condition and Overall Quality of the house is positively correlated with Price as well as the number of Squared Feet of the basement.
+
+The Screen Porch area is significant and is positively correlated with Price.
+
+The Sale condition reduces the price with the reference level "Normal" when comparing with Abnormal and Family, in contrast increases the price when the Sale Condition is partial.
+
 ```{r}
-smod <- summary(mod2)
+smod <- summary(mod3)
+vif(mod2) %>% round(2) %>% t
+
+mod2$coefficients %>% round(5)
+r2 <- smod$r.squared %>% round(2)
+adj.r2 <- smod$adj.r.squared %>% round(2)
 smod
 ```
 
